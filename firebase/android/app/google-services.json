@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "371987029122",
+    "firebase_url": "https://testing-cli-44c7c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "testing-cli-44c7c",
+    "storage_bucket": "testing-cli-44c7c.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371987029122:android:b0602187276015f8a1a89b",
+        "android_client_info": {
+          "package_name": "com.gectcr.firebaseproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACL3Y-1P_48fA7qMTwrNMZ9BB_yeuwMTE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
