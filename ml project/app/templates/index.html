@@ -1,0 +1,302 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Quality Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url("static\\images\\background1.png");
+            background-size: cover;
+            background-color: #f0f4f7; /* Fallback color */
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        .logo {
+            position: absolute;
+            top: 20px; 
+            left: 20px;
+            width: 100px;
+            height: auto;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        h1, h2 {
+            color: #1e3a8a;
+            text-align: center;
+            margin-top: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            background-color: #f8d049;
+            padding: 10px 0;
+            border-radius: 5px;
+        }
+        h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        .plot {
+            margin-bottom: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-right: 10px;
+        }
+        select {
+            padding: 8px;
+            border: 1px solid #1e3a8a;
+            border-radius: 3px;
+            background-color: #fff;
+            color: #1e3a8a;
+            margin-right: 10px;
+        }
+        button {
+            padding: 8px 20px;
+            background-color: #1e3a8a;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0c2353;
+        }
+        .model-results, .confusion-matrix {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .model-results h2, .confusion-matrix h2 {
+            margin-top: 0;
+        }
+        p {
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+      
+        <img src="static\images\logo1.png" alt="Logo" class="logo">
+
+        <h1>Water Potability Analysis</h1>
+        <h2>Distribution of Unsafe and Safe Water</h2>
+        <div class="plot">
+            {{static_plot|safe}}
+        </div>
+        <form action="/" method="post">
+            <label for="feature">Select a feature:</label>
+            <select name="feature" id="feature">
+                {% for key, value in dropdown_options.items() %}
+                <option value="{{ key }}" {% if key == selected_feature %} selected {% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Submit</button>
+        </form>
+
+        
+        <div class="plot">
+            {{ histogram_plot|safe }}
+        </div>
+
+     
+        <div class="model-results">
+            <h2>Model Results:</h2>
+            <p>Model used: Quadratic Discriminant Analysis</p>
+            <p>Accuracy: {{ accuracy }}%</p>
+            <p>Precision: {{ precision }}</p>
+            <p>Recall: {{ recall }}</p>
+            <p>F1 Score: {{ f1 }}</p>
+        </div>
+        
+       
+        <div class="confusion-matrix">
+            <h2>Confusion Matrix:</h2>
+            <div>
+                {{ conf_matrix|safe }}
+            </div>
+        </div>
+    </div>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Quality Analysis</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url("static\\images\\background1.png");
+            background-size: cover;
+            background-color: #f0f4f7; /* Fallback color */
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+            position: relative;
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .logo {
+            position: absolute;
+            top: 20px; 
+            left: 20px;
+            width: 120px;
+            height: auto;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            animation: slideInLeft 0.5s ease-in-out;
+        }
+        h1, h2 {
+            color: #1e3a8a;
+            text-align: center;
+            margin-top: 20px;
+            animation: slideInUp 0.5s ease-in-out;
+        }
+        h1 {
+            font-size: 28px;
+            background-color: #f8d049;
+            padding: 15px 0;
+            border-radius: 10px;
+        }
+        h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .plot {
+            margin-bottom: 40px;
+            animation: slideInUp 0.5s ease-in-out;
+        }
+        form {
+            margin-bottom: 40px;
+            text-align: center;
+            animation: slideInUp 0.5s ease-in-out;
+        }
+        label {
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-right: 10px;
+        }
+        select {
+            padding: 10px;
+            border: 1px solid #1e3a8a;
+            border-radius: 5px;
+            background-color: #fff;
+            color: #1e3a8a;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 25px;
+            background-color: #1e3a8a;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+        button:hover {
+            background-color: #0c2353;
+        }
+        .model-results, .confusion-matrix {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+            animation: slideInUp 0.5s ease-in-out;
+        }
+        .model-results h2, .confusion-matrix h2 {
+            margin-top: 0;
+        }
+        p {
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        /* Keyframe animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideInLeft {
+            from { transform: translateX(-100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+       
+        <img src="static\images\logo1.png" alt="Logo" class="logo">
+
+        <h1>Welcome to Water Potability Analysis</h1>
+        <h2>Distribution of Unsafe and Safe Water</h2>
+        <div class="plot">
+            {{static_plot|safe}}
+        </div>
+        <form action="/" method="post">
+            <label for="feature">Select a feature:</label>
+            <select name="feature" id="feature">
+                {% for key, value in dropdown_options.items() %}
+                <option value="{{ key }}" {% if key == selected_feature %} selected {% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Submit</button>
+        </form>
+
+       
+        <div class="plot">
+            {{ histogram_plot|safe }}
+        </div>
+
+        
+        <div class="model-results">
+            <h2>Model Results:</h2>
+            <p>Model used: Quadratic Discriminant Analysis</p>
+            <p>Accuracy: {{ accuracy }}%</p>
+            <p>Precision: {{ precision }}</p>
+            <p>Recall: {{ recall }}</p>
+            <p>F1 Score: {{ f1 }}</p>
+        </div>
+        
+        
+        <div class="confusion-matrix">
+            <h2>Confusion Matrix:</h2>
+            <div>
+                {{ conf_matrix|safe }}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
