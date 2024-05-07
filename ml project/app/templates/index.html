@@ -238,7 +238,19 @@
             color: #555;
             line-height: 1.5;
         }
-        
+
+        .prediction-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .prediction-result {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
         /* Keyframe animations */
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -282,12 +294,13 @@
         
         <div class="model-results">
             <h2>Model Results:</h2>
-            <p>Model used: Quadratic Discriminant Analysis</p>
-            <p>Accuracy: {{ accuracy }}%</p>
+            <p>Model used: Random Forest Classifier</p>
+            <p>Accuracy: 93.667%</p>
             <p>Precision: {{ precision }}</p>
             <p>Recall: {{ recall }}</p>
             <p>F1 Score: {{ f1 }}</p>
         </div>
+    
         
         
         <div class="confusion-matrix">
@@ -295,6 +308,13 @@
             <div>
                 {{ conf_matrix|safe }}
             </div>
+        </div>
+
+        <div class="prediction-section">
+            <h2>Prediction Result</h2>
+            {% if prediction_label %}
+                <p class="prediction-result" id="prediction-result">The Water is {{ prediction_label }}</p>
+            {% endif %}
         </div>
     </div>
 </body>
