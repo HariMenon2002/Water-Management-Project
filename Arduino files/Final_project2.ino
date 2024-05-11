@@ -5,6 +5,8 @@
 // #include "DFRobot_ESP_PH.h"
 #include "EEPROM.h"
 #include "pH_sensor_calibration.h"
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define ESPADC 4096.0   //the esp Analog Digital Convertion value
 #define ESPVOLTAGE 3300 //the esp voltage supply value
@@ -49,6 +51,16 @@ FirebaseAuth auth;
 FirebaseConfig config;
 
 
+// GPIO where the DS18B20 is connected to
+const int oneWireBus = 4;     
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(oneWireBus);
+
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
+
+
 String uid;
 String databasePath;
 String parentPath;
@@ -80,7 +92,7 @@ int turbiditySensorPin=32;
 
 
 
-float temperature=25,humidity,conductivity,pH;
+float temperature=25,humidity=0,conductivity,pH;
 
 float turbidity=0.0;
 
@@ -165,14 +177,18 @@ unsigned long getTime() {
 void dhtSensor(void * parameters){
    for(;;){
 
-
+        sensors.requestTemperatures(); 
+        float temperatureC = sensors.getTempCByIndex(0);
+        temperature = temperatureC;
+          Serial.print(temperatureC);
+  Serial.println("ºC");
       vTaskDelay(1000/portTICK_PERIOD_MS);
    }
 }
 
 /*This section of code measures the pH value of the water*/
 void pHSensor(void * parameters){
-  //calibrate_pH_sensor();
+  calibrate_pH_sensor();
    for(;;){
         pH = read_pH();
         Serial.print("pH Value");
@@ -202,6 +218,8 @@ void turbiditySensor(void * parameters){
       float voltage = turbiditySensorValue * (3.3 / 4095.0); // 12-bit ADC
       float ntu = -6*voltage+10;
       turbidity = ntu;
+              Serial.print("turbidity Value");
+        Serial.println(ntu);
       vTaskDelay(1000/portTICK_PERIOD_MS);
    }
 }
@@ -229,9 +247,9 @@ void conductivitySensor(void * parameters){
     tdsValue=(133.42*compensationVoltage*compensationVoltage*compensationVoltage - 255.86*compensationVoltage*compensationVoltage + 857.39*compensationVoltage)*0.5;
     ppm=tdsValue;
     conductivity = ppm/0.7;
-    // Serial.print("TDS value:");    //read the analog value and store into the buffer
-    // Serial.print(tdsValue);
-    // Serial.println("ppm");
+     Serial.print("TDS value:");    //read the analog value and store into the buffer
+     Serial.print(tdsValue);
+     Serial.println("ppm");
 
 
       vTaskDelay(1000/portTICK_PERIOD_MS);
@@ -248,7 +266,9 @@ void setup() {
     pinMode(echoPin, INPUT);
      pinMode(relayPin, OUTPUT);
 
-
+      pinMode(4,INPUT_PULLUP);
+  // Start the DS18B20 sensor
+     sensors.begin();
 
           Serial.begin(115200);
           initWiFi();
@@ -366,13 +386,13 @@ void loop() {
   distanceInch = distanceCm * CM_TO_INCH;
   
   // Prints the distance in the Serial Monitor
-  Serial.print("Distance (cm): ");
-  Serial.println(distanceCm);
-     
-  delay(1000);
-  while(distanceCm >=18){
-    digitalWrite(relayPin, HIGH);
-  }
+//  Serial.print("Distance (cm): ");
+//  Serial.println(distanceCm);
+//     
+//  delay(1000);
+//  while(distanceCm >=18){
+//    digitalWrite(relayPin, HIGH);
+//  }
   
 
         if (Firebase.ready() && (millis() - sendDataPrevMillis > timerDelay || sendDataPrevMillis == 0)){
@@ -386,8 +406,8 @@ void loop() {
 
                       parentPath= databasePath + "/" + String(timestamp);
 
-                      temperature=dht.readTemperature();
-                      humidity=dht.readHumidity();
+                      
+                      //humidity=dht.readHumidity();
 
 
                       json.set(tempPath.c_str(), String(temperature));
