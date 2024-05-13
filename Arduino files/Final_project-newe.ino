@@ -4,9 +4,12 @@
 #include<DHT.h>
 // #include "DFRobot_ESP_PH.h"
 #include "EEPROM.h"
-#include "pH_sensor_calibration.h"
+#include "ph_sensor.h"
+#include "soc/rtc_wdt.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <esp_now.h>
+
 
 #define ESPADC 4096.0   //the esp Analog Digital Convertion value
 #define ESPVOLTAGE 3300 //the esp voltage supply value
@@ -14,14 +17,14 @@
 #define TdsSensorPin 34
 #define SOUND_SPEED 0.034
 #define CM_TO_INCH 0.393701
+#define TANK_LENGTH 75
 
 
 
 
-#define DHTPIN 2     
+  
     
-#define DHTTYPE DHT11   
-DHT dht(DHTPIN, DHTTYPE);
+
 
 #include "time.h"
 #include "addons/TokenHelper.h"
@@ -30,6 +33,8 @@ DHT dht(DHTPIN, DHTTYPE);
 
 #define WIFI_SSID "Redmi 9 Prime"
 #define WIFI_PASSWORD "Ani#1234"
+// #define WIFI_SSID "BSNLFIBRONET"//"Redmi 9 Prime"
+// #define WIFI_PASSWORD "shaju2258"
 
 //#define WIFI_SSID "Xiaomi_1F4F"
 //#define WIFI_PASSWORD "KL@8@BD@926"
@@ -50,7 +55,6 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-
 // GPIO where the DS18B20 is connected to
 const int oneWireBus = 4;     
 
@@ -64,6 +68,14 @@ DallasTemperature sensors(&oneWire);
 String uid;
 String databasePath;
 String parentPath;
+
+typedef struct struct_message {
+  float distanceCm;
+  float distanceInch;
+} struct_message;
+
+struct_message myData;
+
 
 int timestamp;
 int timestampPrev;
@@ -81,14 +93,10 @@ float distanceInch;
 
 
 
-const int trigPin = 25;
-
-const int echoPin = 26;
-
-const int relayPin = 12; 
-
 int turbiditySensorPin=32;
-
+float distance;
+float percentage;
+float a,b;
 
 
 
@@ -138,6 +146,9 @@ String minpHPath = "/min pH";
 String ppmPath="/ppm";
 
 
+esp_now_peer_info_t peerInfo;
+
+TaskHandle_t lowPriorityTaskHandle = NULL;
 
 void initWiFi() {
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -153,7 +164,10 @@ void initWiFi() {
 }
 
 
-
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&myData, incomingData, sizeof(myData));
+  distance = myData.distanceCm;
+}
 
 
                                                               // Function that gets current epoch time
@@ -177,12 +191,10 @@ unsigned long getTime() {
 void dhtSensor(void * parameters){
    for(;;){
 
-        sensors.requestTemperatures(); 
-        float temperatureC = sensors.getTempCByIndex(0);
-        temperature = temperatureC;
-          Serial.print(temperatureC);
-  Serial.println("ºC");
-      vTaskDelay(1000/portTICK_PERIOD_MS);
+      sensors.requestTemperatures(); 
+      float temperatureC = sensors.getTempCByIndex(0);
+      temperature = temperatureC;
+      vTaskDelay(4000/portTICK_PERIOD_MS);
    }
 }
 
@@ -190,7 +202,13 @@ void dhtSensor(void * parameters){
 void pHSensor(void * parameters){
   calibrate_pH_sensor();
    for(;;){
-        pH = read_pH();
+        // rtc_wdt_protect_off();    // Turns off the automatic wdt service
+        // rtc_wdt_enable();         // Turn it on manually
+        // rtc_wdt_set_time(RTC_WDT_STAGE0, 40000);  // Define how long you desire to let dog wait.
+          // Read pH sensor voltage
+        float sensorVoltage = analogRead(PH_PIN) * (3.3 / pow(2, 12)); // Convert ADC value to voltage
+        // Calculate pH value
+        float pH = calculate_pH(sensorVoltage);
         Serial.print("pH Value");
         Serial.println(pH);
         // float voltage;
@@ -206,21 +224,33 @@ void pHSensor(void * parameters){
         //   pH = ph.readPH(voltage, temperature); // convert voltage to pH with temperature compensation
         // }
 
-      vTaskDelay(1000/portTICK_PERIOD_MS);
+      vTaskDelay(2000/portTICK_PERIOD_MS);
    }
 }
 
 /*This section of the code measure the turbidity of the water*/
 void turbiditySensor(void * parameters){
+  float ntu;
    for(;;){
       // Convert the ADC reading to voltage (assuming a 4.1V reference voltage)
-      turbiditySensorValue = analogRead(turbiditySensorPin);
-      float voltage = turbiditySensorValue * (3.3 / 4095.0); // 12-bit ADC
-      float ntu = -6*voltage+10;
+      float volt = 0;
+      for (int i = 0; i < 800; i++) {
+      volt += ((float)analogRead(turbiditySensorPin) / 4096) * 3.3; // Conversion for 3.3V, as ESP has a 12-bit ADC
+      }
+      volt = volt / 800;
+
+
+      ntu = 0.1329407 + 9.845065*exp(-5.495042*volt); // Calculating NTU using the provided quadratic equation
+      //y = 0.1329407 + 9.864065*e^(-5.495042*x)
+      // Limiting the NTU value between 0 and 2000
+      if (ntu < 0) {
+      ntu = 0;
+      } else if (ntu > 10) {
+      ntu = 10;
+      }
+
       turbidity = ntu;
-              Serial.print("turbidity Value");
-        Serial.println(ntu);
-      vTaskDelay(1000/portTICK_PERIOD_MS);
+      vTaskDelay(2000/portTICK_PERIOD_MS);
    }
 }
 
@@ -247,31 +277,48 @@ void conductivitySensor(void * parameters){
     tdsValue=(133.42*compensationVoltage*compensationVoltage*compensationVoltage - 255.86*compensationVoltage*compensationVoltage + 857.39*compensationVoltage)*0.5;
     ppm=tdsValue;
     conductivity = ppm/0.7;
-     Serial.print("TDS value:");    //read the analog value and store into the buffer
-     Serial.print(tdsValue);
-     Serial.println("ppm");
+    // Serial.print("TDS value:");    //read the analog value and store into the buffer
+    // Serial.print(tdsValue);
+    // Serial.println("ppm");
 
 
-      vTaskDelay(1000/portTICK_PERIOD_MS);
+      vTaskDelay(2000/portTICK_PERIOD_MS);
    }
 }
 
+void lowPriorityTask(void *pvParameters) {
+    for (;;) {
+        // Task code goes here
+
+        // Reset watchdog timer
+        rtc_wdt_feed();
+
+        // Delay to control task execution frequency
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust delay as needed
+    }
+}
 
 
-
+void printData(void *pvParameters) {
+  for (;;) {
+    percentage = distance/TANK_LENGTH*100;
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.print(" cm  ");
+    Serial.print(percentage);
+    Serial.println("%");
+    humidity = percentage;
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
 
 
 void setup() {
-    pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
-    pinMode(echoPin, INPUT);
-     pinMode(relayPin, OUTPUT);
-
-      pinMode(4,INPUT_PULLUP);
-  // Start the DS18B20 sensor
-     sensors.begin();
 
           Serial.begin(115200);
           initWiFi();
+
+          WiFi.mode(WIFI_MODE_STA);
   
           configTime(0, 0, ntpServer);
           // Assign the api key (required)
@@ -304,10 +351,20 @@ void setup() {
 
 
 
+          if (esp_now_init() != ESP_OK) {
+              Serial.println("Error initializing ESP-NOW");
+              return;
+            }
 
+            esp_now_register_recv_cb(OnDataRecv);
 
-
-
+           xTaskCreate(printData,
+            "Print Data",
+             1024,
+             NULL,
+             2,
+            NULL);
+          
 
   
           xTaskCreate(
@@ -322,9 +379,9 @@ void setup() {
           xTaskCreate(
               pHSensor,
               "PHSENSOR",
-              1000,//stack size
+              2048,//stack size
               NULL,//task parameters
-              1,//priority
+              0,//priority
               NULL  //task handle
           );
 
@@ -345,6 +402,14 @@ void setup() {
               1,//priority
               NULL  //task handle
           );
+          xTaskCreate(
+        lowPriorityTask,      // Task function
+        "LowPriorityTask",    // Task name
+        1000,                 // Stack size (words)
+        NULL,                 // Task parameters
+        0,                    // Priority (low priority)
+        &lowPriorityTaskHandle  // Task handle
+    );
           // xTaskCreate(
           //     legthMeasure,
           //     "Lengthmeasure",
@@ -366,33 +431,9 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-   digitalWrite(relayPin, LOW);
-  
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  
-  // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH);
-  
-  // Calculate the distance
-  distanceCm = duration * SOUND_SPEED/2;
-  
-  // Convert to inches
-  distanceInch = distanceCm * CM_TO_INCH;
-  
-  // Prints the distance in the Serial Monitor
-//  Serial.print("Distance (cm): ");
-//  Serial.println(distanceCm);
-//     
-//  delay(1000);
-//  while(distanceCm >=18){
-//    digitalWrite(relayPin, HIGH);
-//  }
+
+
+
   
 
         if (Firebase.ready() && (millis() - sendDataPrevMillis > timerDelay || sendDataPrevMillis == 0)){
@@ -406,8 +447,8 @@ void loop() {
 
                       parentPath= databasePath + "/" + String(timestamp);
 
-                      
-                      //humidity=dht.readHumidity();
+                      // temperature=dht.readTemperature();
+                      // humidity=dht.readHumidity();
 
 
                       json.set(tempPath.c_str(), String(temperature));
